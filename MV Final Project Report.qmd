@@ -1,0 +1,40 @@
+---
+title: "Machine Vision Final Project Report"
+author: "J.J. Moncus"
+date: today
+format:
+  pdf:
+    header-includes:
+      - \usepackage{changepage}
+---
+
+# Initial Ideas, and Why I Didn't Pursue Them
+
+My first two ideas both involved some degree of pose estimation. In the end, the first was implausible given the data we're working with, while the second fell outside the bounds of what was allowed in the assignment.
+
+### First: "Follow the Elbow"
+
+\begin{adjustwidth}{1.5em}{0pt}
+
+
+The algorithm for predicting the number of pushups performed in any given video would go something like this:
+
+1) For every frame:
+ - Use template images to identify the maximum-likelihood estimate (x,y) coordinates of the right shoulder, elbow, and wrist
+ - Fit a line connecting the shoulder to the elbow, and fit another line connecting the elbow to the wrist.
+ - Calculate the angle between the two lines.
+  - Each frame is thus reduced to a one-dimensional scalar (i.e. the angle of the elbow), and we no longer have to hold onto the pixel information.
+
+2) Count the number of instances the elbow angle exits and re-enters some "threshold zone" near $180^{\circ}$ (say ~$172^{\circ}$). We don't want to force a completed push-up to only be tallied when the angle is exactly $180^{\circ}$ to account for some individual's inability to straighten their arms all the way.
+
+\end{adjustwidth}
+
+**Why I think this wouldn't work**
+
+1) The shoulder, elbow, and wrist all change orientation as they move, whereas the template image used to track them would likely be fixed (probably based on what each joint typically looks like in the initial push-up top position). Thus, we might lose track of the joint coordinates as the person executes the pushup, which would could make computing lines through those points very noisy.
+2) Not all videos even feature the right arm. We might have to start with some first layer, identifying what size of the person is visible, then apply a different template for each side, which seemed needlessly complicated.
+3) Some videos are shot such that the elbow angle isn't obvious (like from the front, or from above). In these cases, fitting useful lines could be very difficult.
+
+In short, this approach *might* make sense if all videos were shot from the side, and if the orientation of the joints don't change much as they move (i.e. if it's still easy to recognize that a shoulder is a shoulder, whether the arm is forward or backward). Given none of this is the case, I scrapped this plan pretty quickly.
+
+### Second: "Follow the Chest"
