@@ -1,0 +1,81 @@
+---
+title: "Untitled"
+format: html
+---
+
+
+::: {.callout-note icon=false}
+
+## Algorithm
+
+1) For every frame:
+
+  - Use a pre-trained pose estimation model to calculate the $(x,y)$ coordintes of the two shoulders and the two hips.
+
+  - Take the average of these to get the $(x,y)$ coordinates of the "torso centroid"
+
+    - Each frame is thus reduced to a two-dimensional scalar (i.e.), and we no longer have to hold onto the pixel information.
+
+2) Using the trunk centroid for the first frame, declare some $(x,y)$ range where we decide the person is in the "top" position.
+
+  - We would have to decide this by inspection, but start with something conservative, like 20 pixels in each direction.
+
+3) Across frames, count the number of times the trunk centroid leaves the top range and comes back again.
+
+:::
+
+**Why I think this wouldn't work**
+
+
+1) This method would be highly sensitive to any camera movement. If the trunk centroid moves in the frame simply because the camera rotates around the person, the model may see pushups where there aren't any. And because we're not passing any other pixel-information, the model wouldn't be able to which trunk movements correspond to camera movements.
+
+2) While it is helpful to know that the test data will only contain whole integer pushups, this method could be sensitive to small torso movements that don't count as whole pushups (like, say, if the person hunches or stretches their back without moving their arms).
+
+This method *might* work if all videos are shot with stable cameras and if the subjects don't wiggle much in between pushups. But we can't be confident that that will be the case in the test data.
+
+## Summary
+
+All told, pose estimation seems intuitively helpful but insufficient. To be successful, my hunch was that the model needs to keep track of both the person AND how the person relates to other elements in the frame, like the ground or the sky. For that, we need to pass full pixel-information into our first layer.
+
+
+
+
+
+Well, I ultimately came back to Pose Estimation
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
