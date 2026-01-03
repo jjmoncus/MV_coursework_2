@@ -10,11 +10,9 @@ format:
       - \usepackage{booktabs}
 ---
 
-# Initial Idea: Pose Estimation, and Why I Didn't Pursue It
+# First Idea: "Follow the Elbow", and Why I Didn't Pursue It
 
 My first two ideas both involved some degree of pose estimation. In the end, the first was implausible given the data we're working with, while the second fell outside the bounds of what was allowed in the assignment.
-
-### First: "Follow the Elbow"
 
 ::: {.callout-note icon=false}
 
@@ -49,7 +47,33 @@ My first two ideas both involved some degree of pose estimation. In the end, the
 In short, this approach *might* make sense if all videos were shot from the side, and if the orientation of the joints don't change much as they move (i.e. if it's still easy to recognize that a shoulder is a shoulder, whether the arm is straight or bent). Given none of this is the case, I scrapped this plan pretty quickly.
 
 
-### Second: "Follow the Chest"
+
+## Second idea: Learn the Features from Scratch
+
+I was inspired to see whether the task was possible without worrying too much about feature engineering. The promise of deep learning is that the model can learn may be able to learn useful representations from raw inputs
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+### Final: Follow the Person, More Generally
 
 ::: {.callout-note icon=false}
 
@@ -83,6 +107,38 @@ This method *might* work if all videos are shot with stable cameras and if the s
 ## Summary
 
 All told, pose estimation seems intuitively helpful but insufficient. To be successful, my hunch was that the model needs to keep track of both the person AND how the person relates to other elements in the frame, like the ground or the sky. For that, we need to pass full pixel-information into our first layer.
+
+
+
+
+
+Well, I ultimately came back to Pose Estimation
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 # Learning about the data
