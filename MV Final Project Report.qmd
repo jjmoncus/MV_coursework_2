@@ -49,11 +49,13 @@ I was inspired to see whether the task was possible without worrying too much ab
 In hindsight: all of these approaches suffered from severe problems:
 
 * Underwhelming final training accuracy
-* very long training time (30 epochs could easily take 3 hours).
+* very long training time (30 epochs could easily take ~3 hours).
 * many epochs without improvement
 * memory overload: training would consistently take up anywhere from 10GB to 14GB of unified MPS memory (on Mac)
 
-In the end, I defaulted to pose estimation, as a way of working with significantly smaller data that was still informative to our task. But first, below is a record of what I tried:
+In the end, I defaulted to pose estimation, as a way of working with significantly smaller data that was still informative to our task. 
+
+Below is a record of what I tried first:
 
 
 ## 1.1): A Basic CNN for both space and time
@@ -71,7 +73,7 @@ I conducted training with the following fixed parameters:
 * a stride of every 10th frame when loading training data, with max frames set to 100.
 * learning rate = $1e-3$
 
-Below is the summary of the first model, which I then modified a number of ways in different combinations:
+Below is the summary of the first model:
 
 
 \begin{table}[h]
@@ -97,9 +99,9 @@ Below is the summary of the first model, which I then modified a number of ways 
 
 I reached for a CNN before even trying a fully-connected MLP.
 
-An MLP has much weaker inductive bias than a CNN, since the MLP does not presume translational equivaraince over the input data. This is helpful sometimes in that an MLP could potentially learn far more complicated relationships between inputs and outputs, but at the cost of much larger memory overhead. However, the CNN would have the advantage of learning to understand pushups regardless of where the subject lives in the frame, whereas an MLP would have to relearn this whenever the subject appears in a new locatin. The weak inductive bias also makes the MLP more likely to overfit. For this reason, along with our memory footprint limits, a CNN seemed preferable.
+An MLP has much weaker inductive bias than a CNN, since the MLP does not presume translational equivaraince over the input data. This is helpful for learning more complicated relationships, but at the cost of more weights to learn. The CNN  has the advantage of learning to understand pushups regardless of where the subject lives in the frame, whereas an MLP would have to relearn this whenever the subject appears in a new location. The weak inductive bias also makes the MLP more likely to overfit. For this reason, along with our memory footprint limits, a CNN seemed preferable.
 
-In hindsight, starting with an MLP would have been helpful to get a baseline understanding for how difficult the our learning problem is. If even a relatively-deep MLP struggles to acheive high training accuracy, then our CNN would likely be insufficient. Luckily, this turned out to not be necessary.
+In hindsight, starting with an MLP would have been helpful to get a baseline understanding for how difficult our learning problem is. If even a relatively-deep MLP struggles to acheive high training accuracy, then our CNN would likely be insufficient. Luckily, this turned out to not be necessary.
 
 :::
 
@@ -135,9 +137,8 @@ Some observations:
 
 * A prediction standard deviation of 0.00 for every validation pass is a sign that the model has learned to simply predict the mean of the validation set. 
 * Validation loss and the total euclidean norm of the model weights are changing (minimally) per pass. So, the model is technically "learning" something, but not nearly enough to affect predictions (as shown by the st.dev.s)
-* Validation accuracy is capped at 60% because the mean 
-* These 10 epochs took 10 minutes to run, and the model was consuming about 6.54GB VRAM on my Macbook's MPS the whole time, i.e. painful.
-
+* Validation accuracy is capped at 60% because the mean is well represented in the data, so it gets a fair few videos correct by accident.
+* 10 epochs took 10 minutes to run, consuming ~6.54GB VRAM on my Macbook's MPS the whole time.
 
 
 I tried modifying the CNN a number of ways:
@@ -153,9 +154,9 @@ Across 5 attempts with different adjustments, results were similar. The model di
 
 ## 1.2): ResNet for Spatial Features
 
-After several failed attempts, I thought a small ResNet with skip connections might do solve the vanishing gradients problem. The skip connections make the loss landscape smoother, which makes calculating gradients easier.
+I thought a small ResNet with skip connections might solve the vanishing gradients problem. The skip connections make the loss landscape smoother, which makes calculating gradients easier.
 
-So I replaced the spatial feature stage with a pre-built ResNet18, beginning with all weights frozen to avoid the computational overhead of computing so many more gradients.
+I replaced the spatial feature stage with a pre-built ResNet18, with all weights frozen (to avoid computational overhead).
 
 \begin{table}[h]
     \centering
@@ -654,6 +655,7 @@ Our confusion matrix shows nearly all mistakes are on the margin, with the model
 - **Larger classifier input size**: To deal with feeding two pooled inputs instead of one.
 - **Remove striding on load**. Previously, we were dealing with motion noise by only loading every 10th frame of each video into each training batch. After frame-poses were smoothed, the model tended to perform worse with any amount of striding, especially on longer videos, where crucial push-up turning points might get lost. For this reason, we load all frames into memory and pad them to 1000 frames as before.
 - **Horizontal flipping**: I had forgotten that after transforming videos by duplicating/halving, I could also simply horizontally flip them all, like in (1.2.6). The goal here is to avoid the model overfitting for a certain "handedness" (i.e. the subject slightly leaning to the right or left as they descend).
+- **Larger weight decay**: $9e-4$.
 
 The final training dataset consisted of 658 videos, with the following class balance:
 
