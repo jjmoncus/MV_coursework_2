@@ -8,37 +8,38 @@ format:
     header-includes:
       - \usepackage{changepage}
       - \usepackage{booktabs}
+      - \usepackage{graphicx}
 ---
 
 # Executive Summary
 
 Here are what I consider to be the most valuable learnings from over the course of this project.
 
-* Trying to train directly on raw videos produced poor results.
+* Trying to learn features from scratch directly on raw videos produced underwhelming results.
 
   * A two-stage CNN suffered from chronic vanishing gradients and failed to learn.
   * After many small fix attempts, a ResNet eventually fixed the vanishing gradients problem, but trained very slowly, and with underwhelming final accuracy.
 
-* If you can justifiably change your regression problem into a classification problem, then the learning task likely becomes much easier.
+* If you can justifiably change your regression problem into a classification problem, then the learning task likely becomes easier.
 
 * Preprocessing videos using pose estimation immediately gave us information-rich representations that quickly acheived better results, compared to learning features from scratch.
 
 * Augmentating the data helped acheive a sufficiently large, class-balanced training set, and subtle smoothing helped avoid confusing the model with sharp movements.
 
-* There is an art to balancing model size/complexity, weight decay, and learning rate scheduling to learn suffiiently complex relationships, avoid overfitting, and not-waste training time.
+* There is an art to balancing model size/complexity, weight decay, and learning rate scheduling to learn suffiiently complex relationships, avoid overfitting, and not waste training time.
 
 
 # Learning About the Data
 
-To get a sense of our training data, I watched most of our training videos and inspected some metadata:
+Some observations about the training videos:
 
-  - All videos seem to be shot with 24 frames-per-second, for a total length of roughly 90 to 360 frames (i.e. roughly 3.5 to 10 seconds).
+  - All 24 FPS, total length roughly 90-360 frames (i.e. $\approx$ 3.5 - 10 seconds).
 
-  - Most videos are shot in wide-screen, meaning if we squish videos to a 224x224 square resolution for training, the subject will look squished. Hopefully the push-up movement would still be apparent.
+  - Most are in wide-screen. If we squish to 224x224 for training, the subject might will unnatural, but the push-up movement might be preserved.
 
-  - Videos are shot from all angles (from the side, from the front, from above), and sometimes with camera movement. Any feature learning we do will have to take into account how the camera affects the subject's position in plane-space.
+  - Videos are shot from all angles (side, front, above), and sometimes with camera movement, i.e. we have to take into account camera effects.
 
-  - Since pushups are relatively smooth movements, we may be able to stride over frames (i.e. for each vide,  only look at every 5th or 10th frame) during both training and inference and still see the subject's movement. This way, we could save a lot of memory overhead.
+  - Since pushups are mostly smooth movements, we may be able to stride over frames (i.e. only look at every 5th or 10th frame of a video) and still see the subject's movement, thus saving memory.
 
 
 # 1) Learn the Features from Scratch (With Underwhelming Results)
@@ -196,11 +197,11 @@ This architecture successfully trained:
 
 # 1.2) Building upon ResNet
 
-I tried a series of modificaitons to see if this ResNet backbone could successfully tackle the problem:
+I tried a series of modifications to see if this ResNet backbone could successfully tackle the problem:
 
 ### 1.2.0) Unfreeze some ResNet weight 
 
-ResNet18 is pre-trained on ImageNet, and thus understands a lot about various objects, including people and landscapes. However, it may not understand anything specific about pushups. So, I unfroze the final layer of the resnet backbone, to see if weight-updates would help the ResNet better recognize spatial features important for counting pushups. 
+ResNet18 is pre-trained on ImageNet, and thus understands a lot about various objects, including people and landscapes. However, it may not understand anything specific about pushups. So, I unfroze the final layer of the resnet backbone, to see if weight-updates would help it recognize spatial features important for counting pushups. 
 
 **Result**: 
  - **Full training set evaluation**: 43% accuracy
@@ -358,7 +359,11 @@ The next unlock came from simply adding another layer each to the temporal and c
     \label{tab:video_resnet_conv1d}
 \end{table}
 
-After 25 epochs, this architecture was able to acheive 100% during some training epochs, with a final validation accuracy of 75%. It was clearly overfitting, but it was reassuring to see that an architecture like this could at least learn something.
+
+**Result**: 
+* **Final evaluation accuracy**: 75% (~25 epochs, 2 hours)
+
+On some epochs, this architecture acheive 100% accuracy across its training batches.It was clearly overfitting, but it was reassuring to see that an architecture like this could at least learn something.
 
 ### 1.2.5) Data Augmentation for Class Balance
 
@@ -382,7 +387,7 @@ After some online research, I landed on the following augmentations:
         Double 5's (including previously-generated) & 10's \\
         \bottomrule
     \end{tabular}
-    \caption{Data Stretching and Slicing Operations}
+    \caption{Video Stretching and Slicing Operations}
 \end{table}
 
 
@@ -408,11 +413,16 @@ Slicing needed to be done with care to avoid jump cuts, which could be misinterp
 * 3 to 5 = Original + (Palindrome * 66%)
 * 4 to 7 = Original + (Palindrome * 80%)
 
-I used 66% and 80% instead of 60% and 75% stitches for the 5's and 7's because many videos contained a little bit of "dead space" at the beginning before the subject would first move, which would downstream lead the 5th and 7th push-ups to get cut off too early. The extra stitching helped ensure the final pushup was completed.
+I used 66% and 80% instead of 60% and 75% stitches for the 5's and 7's to account for many videos containing a little bit of "dead space" at the beginning before the subject would first move, which would downstream lead the 5th and 7th push-ups to get cut off too early, if not for the extra stiching.
 
 All cut-in-half videos were cut at the nearest integer to the midpoint frame.
 
-The result was still bad: the ResNet Hybrid from (1.2.4) acheived just 19% training accuracy after 29 epochs
+Training was done using the deeper ResNet Hybrid (1.2.4) (~29 epochs, 2.5 hours)
+
+**Results:**
+* **Final evaluation accuracy**: 19%.
+
+The model had a strong tendency to overcount push-ups, suggesting the stiching was introducing noisy movements that were being misinterpreted as push-ups.
 
 
 ::: {.callout-note}
@@ -431,11 +441,16 @@ Lesson learned: regression seems generally harder for this problem.
 
 :::
 
-### 1.2.6) Simpler Augmentation, Just for Training set Size
+### 1.2.6) Simpler Augmentation
 
-As an experiment, I made a copy of every video by first flipping it horizontally and reversing the order of frames. This doubled the size of the training set, but retained the harsh class imbalance.
+At this point, I was frustrated that no data augmentation seemed to help. I naively decided to make a copy of every video by first flipping it horizontally and reversing the order of frames. This doubled the size of the training set, but retained the harsh class imbalance.
 
-Unsurprisingly, ResNet Hybrid (1.2.4) acheived 75% accuracy on this set, this time after just 9 epochs. This mirrors the result from (1.2.4), and we can chalk up the faster convergence to the dataset being larger.
+Training was again done with the (1.2.4) ResNet Hybrid.
+
+**Result:**
+* **Final evaluation accuracy**: 75%
+
+Unsurprisingly, ResNet Hybrid (1.2.4) acheived this result with just 9 epochs of training. This mirrors the result from (1.2.4), and we can chalk up the faster convergence to the dataset being larger.
 
 
 
@@ -449,19 +464,33 @@ Unsurprisingly, ResNet Hybrid (1.2.4) acheived 75% accuracy on this set, this ti
 
 Over the course of the failures throughout (1), I stumbled upon a number of helpful training tips to make life easier:
 
-  - **weight decay**: After each batch, the typical weight update is dictated by the learning rate. But to keep the model from overfitting, we can multiplicatively pull the model towards smaller updates using a small weight-decay. I tinkered with values of 1e-4 to 9e-4, with varying degrees of success.
-  - **A learning rate scheduler**: If the learning rate is too high, the weight updates may be too large, which can keep us from descending towards a minimum in the loss landscape. After a few epochs of no improvements, you can "schedule" your learning rate to drop by some percentage, making it more likely that an update will lead you downhill. I tinkered with schedule dops of 1/2 to 1/10th the previous learning rate after 2 or 3 epochs of no improvment in validation loss.
-  - **AdamW**: The AdamW optimizer is specifically designed to decouple learning rates and weight decay (REVIEW THIS).
+  - **weight decay**: After each batch, the typical weight update is dictated by the learning rate. But to keep the model from overfitting, we can multiplicatively pull the model towards smaller updates using a small weight decay parameter. I tinkered with values of 1e-4 to 9e-4, with varying degrees of success.
+
+  - **A learning rate scheduler**: If the learning rate is too high, the weight updates may be too large, which can keep us from descending towards a minimum in the loss landscape. After a few epochs of no improvements, you can "schedule" your learning rate to drop by some percentage, making it more likely that an update will lead you downhill. I tinkered with schedule dops of 1/2 to 1/10th the previous learning rate after 2 or 3 epochs of no improvement in validation loss.
+  - **AdamW**: The AdamW optimizer is specifically designed to decouple weight decay from its adaptive learning rates, as compared to Adam, which scales the weight decay by the learning rate. I switched to AdamW avoid misinterpeting how I was regularizing during training.
   - **Early stopping**: I eventually implemented a rule where the training loop would end early if the learning rate ever fell below $1e-8$. At that rate, weight updates are unlikely to be meaningful.
-  - **Saving your Best**: You don't necessarily have to keep the model returned after the final epoch. Sometimes, the weights associated with lowest validation loss (and thus the one which in theory will generalize best) will happen sometime in the middle of training. I eventually implemented a section of my training protocol which, anytime a new "best validation loss" was acheived would save a "checkpoint" of the model state, optimizer state, scheduler staet, and epoch when the loss occured. That way, I always had access to the best model "so far."
+  - **Saving your Best**: You don't necessarily have to keep the model returned after the final epoch. Sometimes, the weights associated with lowest validation loss (and thus the one which in theory will generalize best) will happen sometime in the middle of training. I eventually implemented a section of my training protocol which, anytime a new "best validation loss" was acheived would save a "checkpoint" of the model, optimizer, and scheduler states. That way, I always had access to the best model "so far."
 
 I implemented each of these in my final, successful attempts (2).
 
-
 :::
 
+# Summary of 1)
 
-# 2) Use Post Estimation to Follow the Whole Person
+**Good news**
+
+* Our best attempt at learning features from scratch acheived 75% evaluation accuracy on our training data. 
+
+**Bad News**
+
+* Training suffered from severe class imbalance.
+* Training takes so long that it's difficult to experiment with different training parameters and small architecture tweaks.
+* All attempts at data augmentation (which is in theory supposed to help) made the model significantly worse.
+
+\pagebreak
+
+
+# 2) A Better Way: Post Estimation
 
 
 While it is true that the subject's relationship with its surroundings (like the ground) changes over the course of a push-up, the essence of a push-up is mostly about the body's joints' orientation to each other: 
@@ -470,7 +499,38 @@ While it is true that the subject's relationship with its surroundings (like the
   - the torso and back lowering and raising
   - the feet staying fixed
 
-Tracking these movements alone may be enough for our task. This approach also allows us to use significantly lower-dimensional data for every frame, which speeds up training.
+Tracking these movements alone may be enough for our task. This approach would allow us to use significantly lower-dimensional data for every frame, which speeds up training.
+
+**Choosing a model**
+
+After some online research, I debated choosing between MediaPipe (by Google) and YOLO (by Ultralytics). Various MediaPipe versions run pose estimation on frames $(128 x 128)$ or $(256 x 256)$. Recent version of YOLO were trained on $(640 \times 640)$ frames.
+
+\begin{table}[h]
+    \centering
+    \begin{tabular}{llll}
+        \toprule
+        .. & \textbf{MediaPipe}    & \textbf{YOLO (later versions)} \\
+        
+        \textbf{Trained Frame Size} & $(224 \times 224)$ or $(256 \times 256)$, depending on the model & $(640 \times 640)$ \\
+        \textbf{How many people?} & Single-person tracking & Multi-person tracking \\
+        \textbf{Dimensions} & 2D and 3d & 2D \\
+        \bottomrule
+    \end{tabular}
+    \caption{Pose Estimation Model Comparison}
+\end{table}
+
+Both models resize input frames before processing, so both might introduce issues working with our widescreen videos.
+
+Given we know there will only be one person in all of our videos, I chose MediaPipe, hoping its outputs would be simpler to index. Experimenting with pasting MediaPipe's pose estimates onto video frames were promising:
+
+![Joint Locations, Video 1, Frame 1](plots/joint_locs_1.png){fig-align="center" width=50%}
+
+![Joint Locations, Video 2, Frame 57](plots/joint_locs_2.png){fig-align="center" width=50%}
+
+Preprocessing all videos through MediaPipe yields tensors with shape $[Time, 33, 4]$, given 33 joints with 4 features each (x_location, y_location, z_location, and visibility).
+
+After this preprocessing, we no longer work with any raw videos going forward.
+
 
 ## 2.0.1) The Same Data Augmentation from (1.2.5)
 
@@ -490,7 +550,7 @@ I tried returning to our roots: a CNN + Linear Classifer, this time after pre-pr
         \midrule
         Preprocess Videos         & $(B, C, T, H, W)$       & Mediapipe Joint Coordinate Esimation    & $(B, T, 33, 4)$ \\
         ...                       & $(B, T, 33, 4)$         & Flatten and transpose                   & $(B, 132, T)$ \\
-        Temporal Processor        & $(B, 132, T)$           & 2x [Conv1d + BatchNorm + LeakyReLU]     & $(B, 256, 1)$ \\
+        Temporal Processor        & $(B, 132, T)$           & 2x [Conv1d + BatchNorm + LeakyReLU] + Global Average Pool    & $(B, 256, 1)$ \\
         Classifier                & $(B, 256, 1)$           & Flatten + Linear + LeakyReLU + Linear   & $(B, 10)$ \\
         \bottomrule
     \end{tabular}
@@ -498,18 +558,21 @@ I tried returning to our roots: a CNN + Linear Classifer, this time after pre-pr
     \label{tab:pose_model_architecture}
 \end{table}
 
+**Results**
 
-Training accuracy: 72% on our expanded class-balanced training set, 61% on the original training set
+* **Final evaluation accuracy:** 72% (expanded class-balanced training set), 61% (original training set)
 
 ![Training loss and accuracy, per epoch](plots/almost_winning_1_train.png){fig-align="center" width=60%}
 
 ![Validation loss and accuracy, per epoch](plots/almost_winning_1_val.png){fig-align="center" width=60%}
 
-Our confusion matrix shows some peculiar behavior.
+\pagebreak
 
-  - Most mistakes are at the margin, predicting one up or down of the actual value (which is good).
+The confusion matrix for the results hows some peculiar behavior:
 
-  - The model has a tendency to predict 6 on high-count videos. 6 is relatively highly represented in the dataset, but not by much.
+  - Most mistakes are at the margin, predicting one up or down of the actual value (which is a good sign).
+
+  - The model has a tendency to predict 6 on high-count videos. 6 is not super-overly-represented in our training set, suggesting this preference has something to do with push-up signal getting lost somewhere.
 
   - There are few instances of gross misses (e.g. confusing 8 for 2, or 2 for 7, etc.) These don't seem to be comprehensively explained by our data augmentation (if it were, we would expect more confusions between 3 and 5, or 4 and 7).
 
@@ -520,27 +583,25 @@ Our confusion matrix shows some peculiar behavior.
 
 Now that the time cost of training was so low, I could play with several tweaks:
 
-  - Adding small FC layer before temporal convolutions
+  - **A small fully-connected layer before temporal stage**
 
-    - it became helpful to allow the model to learn a more compressed representation of the joint coordinates before passing this representation to the temporal convolutions.
+    - the model can learn a more compressed representation of the joint coordinates before passing this representation to the temporal convolutions.
 
-    - Expanded represenations (i.e. going from 132 joint*features to 256) also helped, though less so than compression. 
+    - Expansions representations (i.e.  132 joint*features -->  256 features) also helped, though less so than compression. 
 
-    - Adding an FC layer with the same in and out channels made the model worse. 
-    
-      - **Takeaway:** Layers with the same input and output channels can be dangerous. The model is liable to learn non-useful representations, like rotation, translation, or simply noise.
+    - An FC layer with the same in and out channels made the model worse, suggesting the model was liable to learning non-useful representations at this layer, like rotation, translation, or simply noise.
 
-  - augmenting frame stride and max frame length (holding architecture constant)
+  - **augmenting frame stride and max frame length (holding architecture constant)**
 
-    - stride 10, max frame length 100: 93.5% accuracy
+    - stride 10, max frame length 100: 93.5% final accuracy
 
-    - stride 5, max frame length 200: 89% accuracy
+    - stride 5, max frame length 200: 89% final accuracy
 
-    - stride 3, max frame length 300: 72% accuracy
+    - stride 3, max frame length 300: 72% final accuracy
 
-    - stride 10, max frame length 200: 7% accuracy
+    - stride 10, max frame length 200: 7% final accuracy
 
-    - **Takeaway:** Since all videos are going to be under 1000 frames, ensuring $stride \times max length = 1000$ guarantees we don't cut off videos too early. The longest video in our class-balanced set was FRAME COUNT. For videos at this speed, a stride of 10 seems to capture enough of the push-up movement to be meaningful. Lower strides run the risk of capturing glitchy movement, which might inflate the pushup count prediction. And if $stride \times max_length << 1000$, then we end up padding the video with too much "stand-still" frames, which wash out the signal once our temporal layer hits the Global Average Pool at the end.
+    - **Takeaway:** Since all videos are going to be under 1000 frames, ensuring $\text{stride} \times \text{max length} = 1000$ guarantees we don't cut off videos too early. A stride of 10 seems to capture enough of the push-up movement to be meaningful. Lower strides run the risk of capturing glitchy movement, which might inflate the pushup count prediction. And if $\text{stride} \times \text{max length} << 1000$, then we end up padding the video with too much "stand-still" frames, which wash out the signal once our temporal layer hits the Global Average Pool at the end.
 
   - weight decay
 
@@ -570,7 +631,9 @@ Incorporating the above edits, we get an architecture that looks like this:
 \end{table}
 
 
-85% accuracy on larger class-balanced training set, 93.5% accuracy on original training set
+**Results**
+
+* **Final Eval Accuracy**: 85% (class-balanced training set) 93.5% (original training set)
 
 ![Training loss and accuracy, per epoch](plots/winning_train.png){fig-align="center" width=60%}
 
@@ -580,21 +643,19 @@ Our confusion matrix shows nearly all mistakes are on the margin, with the model
 
 ![Confusion matrix, predicted vs. actual push-up counts](plots/winning_cm.png){fig-align="center" width=80%}
 
-## 2.2.1) Small Modificaitons:
+## 2.2.1) Small Modifications:
 
-- **3D**: exported pose esimations using 3-D coordinates instead of 2-D (still provided by mediapipe). The 3-D locations are in theory more robust to different camera angles.
-- **Smoothing** Up to this point, the majority of mistakes tended to be overcounts, i.e the model seeing push-ups where there are none. This is likely due to the model getting confused by small movements. We can smooth the joint coordinates using SavGol smoothing with a moderate window_size (I chose 7) and moderate polynomial degree (I chose 2) to even out small, unhelpful movements. However, too large a smoothing window, and you risk washing out movements you actually want, whereas too large a polynomial degree, and you risk retaining jitters that aren't meaningful.
+- **3D**: I had inadvertently been loading 2-D pose estimates up to this point, so I switched to 3-D (still provided by mediapipe). The 3-D locations are in theory more robust to different camera angles.
+- **Smoothing** Up to this point, the majority of mistakes tended to be overcounts, i.e the model seeing push-ups where there are none. This is likely due to the model getting confused by small movements. We can smooth the joint coordinates using the Savitzky-Golay (SavGol) filter with a moderate window size (I chose 7) and moderate polynomial degree (I chose 2) to even out small, unhelpful movements. However, too large a smoothing window, and you risk washing out movements you actually want, whereas too large a polynomial degree, and you risk retaining jitters that aren't meaningful.
 
-- **BatchNorm before first linear**: just to make sure that data is centered
+- **BatchNorm before first Linear**: just to make sure that data is centered
 - **Opened spatial embedding bottleneck:** Changed Linear(132, 32) to Linear(132, 64), allowing more room for complex spatial representations.
-- **Both Average and Max Pooling**. Across several experiments, it seems using Global Average Pooling at the end of the spatial stage improved the model's accuracy on high-count videos, but made it worse on low-count ones (as expressed in the evaluation confusion matrix). Low-count videos are usually shorter and have fewer frames, and the excess padding seems to wash out the real pushup signal from earlier in the video. Switching to Max Pooling helped the model focus on the push-up signal in low count videos, while sacrificing accuracy on the high count ones. The solution seems to be to use both: pool once with the average, once with the max, and then pass both values to the temporal stage. That way, the model has capacity to learn that different combinations of {low/high} {average/max} values tend to yield different counts.
+- **Both Average and Max Pooling**. Across several experimental runs, it seems Global Average Pooling the temporal layers improved the model's accuracy on high-count videos, but made it worse on low-count ones. Low-count videos are usually shorter and have fewer frames, and the excess padding seems to wash out the real pushup signal from earlier in the video. Switching to Max Pooling helped the model focus on the push-up signal in low count videos, while sacrificing accuracy on the high count ones. The solution seems to be to use both: pool once with the average, once with the max, and then pass both values to the temporal stage. That way, the model has capacity to learn that different combinations of {low/high} {average/max} values tend to yield different counts.
 - **Larger classifier input size**: To deal with feeding two pooled inputs instead of one.
 - **Remove striding on load**. Previously, we were dealing with motion noise by only loading every 10th frame of each video into each training batch. After frame-poses were smoothed, the model tended to perform worse with any amount of striding, especially on longer videos, where crucial push-up turning points might get lost. For this reason, we load all frames into memory and pad them to 1000 frames as before.
 - **Horizontal flipping**: I had forgotten that after transforming videos by duplicating/halving, I could also simply horizontally flip them all, like in (1.2.6). The goal here is to avoid the model overfitting for a certain "handedness" (i.e. the subject slightly leaning to the right or left as they descend).
 
 The final training dataset consisted of 658 videos, with the following class balance:
-
- 66, 116,  68,  42,  72,  72,  44,  42,  68,  68]])
 
 \begin{table}[h]
     \centering
@@ -633,12 +694,12 @@ After applying the above updates, the final model looks like so:
     \caption{Final PoseModel: 305,530 parameters}
 \end{table}
 
-This architecture acheives 94% accuracy on the original training videos, as well as 92% accuracy on our class-balanced set.
+This architecture achieves 94% accuracy on the original training videos, as well as 92% accuracy on our class-balanced set.
 
 ![Training loss and accuracy, per epoch](plots/final_train.png){fig-align="center" width=60%}
 
 ![Validation loss and accuracy, per epoch](plots/final_val.png){fig-align="center" width=60%}
 
-The confusion matrix (on the class-balanced training set) shows this model still struggles to distinguish between 9 and 10 pushups.
+The confusion matrix (on the class-balanced training set) shows this model still struggles to distinguish between 9 and 10 pushups, but is very good at most other counts.
 
 ![Confusion matrix, predicted vs. actual push-up counts](plots/final_cm_big.png){fig-align="center" width=80%}
