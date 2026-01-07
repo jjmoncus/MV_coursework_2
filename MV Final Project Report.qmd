@@ -11,9 +11,9 @@ format:
       - \usepackage{graphicx}
 ---
 
-Model Training Notebook: [text](link)
-Model Inference Notebook: [text](link)
-Final Model on HuggingFace: [text](link)
+Model Training Notebook: [Link Here](https://colab.research.google.com/github/jjmoncus/MV_coursework_2/blob/main/Machine_Vision_Final_Lab_Model_Training.ipynb)
+Model Inference Notebook: [Link Here](https://colab.research.google.com/github/jjmoncus/MV_coursework_2/blob/main/Machine_Vision_Final_Lab_Model_Inference.ipynb)
+Final Model on HuggingFace: [Link Here](https://huggingface.co/jjmoncus1/mv-final-assignment)
 
 # Executive Summary
 
