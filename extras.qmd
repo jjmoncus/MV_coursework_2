@@ -1,0 +1,45 @@
+---
+title: "Untitled"
+format: html
+---
+
+
+
+
+
+# 0) "Follow the Elbow", and Why I Didn't Pursue It
+
+My first ideas involved a small amount of pose estimation. In the end, the first was implausible given the data we're working with.
+
+::: {.callout-note icon=false}
+
+## Algorithm
+
+1) For every frame:
+
+  - Use template images to identify the maximum-likelihood estimate (x,y) coordinates of the right shoulder, elbow, and wrist
+
+  - Fit a line connecting the shoulder to the elbow, and fit another line connecting the elbow to the wrist.
+
+  - Calculate the angle between the two lines.
+
+    - Each frame is thus reduced to a one-dimensional scalar (i.e. the angle of the elbow), and we no longer have to hold onto the pixel information.
+
+2) Count the number of instances the elbow angle exits and re-enters "threshold zones" near  $0^{\circ}$ (for "closed") and $180^{\circ}$ (for open). 
+
+  - Since arms naturally do not close all the way, the precise angle threshold for closed would have to be picked by inspecting the training data, perhaps somewhere near $10^{\circ}$ to start. The same goes for the open position - some individual's may be unable to straighten their arms all the way, so we might declare open to be anywhere above $170^{\circ}$.
+
+:::
+
+**Why I think this wouldn't work**
+
+1) The shoulder, elbow, and wrist all change orientation as they move, whereas the template image used to track them would likely be fixed (probably based on what each joint typically looks like in the initial push-up top position). Thus, we might lose track of the joint coordinates as the person executes the pushup, which would could make computing lines through those points very noisy.
+
+2) Not all videos even feature the right arm. We might have to start with some first layer, identifying what size of the person is visible, then apply a different template for each side, which seemed needlessly complicated.
+
+3) Some videos are shot such that the elbow angle isn't obvious (like from the front, or from above). In these cases, fitting useful lines could be very difficult.
+
+4) This method would be sensitive to camera movement. If the elbow angle in plane-space looks like it's changing just because the camera rotates around the person, the model might see pushups where there aren't any.
+
+
+In short, this approach *might* make sense if all videos were shot from the side, and if the orientation of the joints don't change much as they move (i.e. if it's still easy to recognize that a shoulder is a shoulder, whether the arm is straight or bent). Given none of this is the case, I scrapped this plan pretty quickly.
