@@ -12,7 +12,9 @@ format:
 ---
 
 Model Training Notebook: [Link Here](https://colab.research.google.com/github/jjmoncus/MV_coursework_2/blob/main/Machine_Vision_Final_Lab_Model_Training.ipynb)
+
 Model Inference Notebook: [Link Here](https://colab.research.google.com/github/jjmoncus/MV_coursework_2/blob/main/Machine_Vision_Final_Lab_Model_Inference.ipynb)
+
 Final Model on HuggingFace: [Link Here](https://huggingface.co/jjmoncus1/mv-final-assignment)
 
 # Executive Summary
@@ -449,7 +451,7 @@ I implemented each of these in my final, successful attempts (2).
 \pagebreak
 
 
-# 2) A Better Way: Post Estimation
+# 2) A Better Way: Pose Estimation
 
 
 While it is true that the subject's relationship with its surroundings (like the ground) changes over the course of a push-up, the essence of a push-up is mostly about the body's joints' orientation to each other: 
@@ -656,7 +658,7 @@ After applying the above updates, the final model looks like so:
 
 This model is publically available at **HUGGING FACE URL HERE**
 
-This architecture achieves 94% accuracy on the original training videos, as well as 92% accuracy on our class-balanced set.
+This architecture achieves 93.5% accuracy on the original training videos, as well as 92% accuracy on our class-balanced set.
 
 ![Training loss and accuracy, per epoch](plots/final_train.png){fig-align="center" width=60%}
 
@@ -665,3 +667,29 @@ This architecture achieves 94% accuracy on the original training videos, as well
 The confusion matrix (on the class-balanced training set) shows this model still struggles to distinguish between 9 and 10 pushups, but is very good at most other counts.
 
 ![Confusion matrix, predicted vs. actual push-up counts](plots/final_cm_big.png){fig-align="center" width=80%}
+
+
+Here's the screenshot of my final Summary section, when validating on the original set:
+
+![Summary](plots/Summary_of_Inference.png){fig-align="center" width=60%}
+
+
+# Final Update: Discrepancy Between Colab T4 and Local MPS
+
+Upon trying to run my notebooks to Colab, I am getting inexplicably terrible errors. The model would seemingly only predict values of 1, 2, and 3, resulting in 3-5% final accuracy, for reasons I do not at all understand.
+
+I confirmed that both my local environment and the Colab environment were operating in normal float32 precision, so the discrepancy doesn't seem to be a precision error. None of the code is changed. 
+
+I have included screenshots of my local machine's console to confirm that this final model did in fact evaluate 93.5% accuracy on the 77 provided videos.
+
+You can see the same messages present in the Colab versions, where I download test videos and then estimate poses on them (You can ignore the "estimate poses in training videos" message ... they are indeed the training/test videos provided to us).
+
+![Console screenshot 1](plots/Console1.png){fig-align="center" width=100%}
+
+![Console screenshot 2](plots/Console2.png){fig-align="center" width=100%}
+
+![Console screenshot 3](plots/Console3.png){fig-align="center" width=100%}
+
+![Console screenshot 4](plots/Console4.png){fig-align="center" width=100%}
+
+![Console screenshot 5](plots/Console5.png){fig-align="center" width=100%}
