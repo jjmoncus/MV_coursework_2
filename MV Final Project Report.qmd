@@ -54,10 +54,9 @@ In hindsight: all of these approaches suffered from severe problems:
 
 * Underwhelming final training accuracy
 * very long training time (30 epochs could easily take ~3 hours).
-* many epochs without improvement
 * memory overload: training would consistently take up anywhere from 10GB to 14GB of unified MPS memory (on Mac)
 
-In the end, I defaulted to pose estimation, as a way of working with significantly smaller data that was still informative to our task. 
+In the end, I defaulted to pose estimation to work with smaller data that was still informative to our task. 
 
 Below is a record of what I tried first:
 
@@ -70,7 +69,7 @@ To track the subject's pushup movement over space and time, I proposed a two-par
   - A series of 1D-convolutions across frames, to see how those spatial features changed over time.
   - A linear head.
 
-I conducted training with the following fixed parameters:
+I trained with the following fixed parameters:
 
 * 10 epochs
 * mean squared error loss (i.e. regression)
@@ -111,7 +110,7 @@ In hindsight, starting with an MLP would have been helpful to get a baseline und
 
 **The Result: Vanishing Gradients**
 
-Every attempt to use a CNN for building spatial features resulted in the model only ever predicting the mean label for each batch.
+Every attempt to use a CNN for building spatial features resulted in the model only predicting the mean label for each batch.
 
 Here are the results over 10 epochs of training for a sample run:
 
@@ -141,7 +140,7 @@ Some observations:
 
 * A prediction standard deviation of 0.00 for every validation pass is a sign that the model has learned to simply predict the mean of the validation set. 
 * Validation loss and the total euclidean norm of the model weights are changing (minimally) per pass. So, the model is technically "learning" something, but not nearly enough to affect predictions (as shown by the st.dev.s)
-* Validation accuracy is capped at 60% because the mean is well represented in the data, so it gets a fair few videos correct by accident.
+* Validation accuracy is reaches 60% because the mean is well represented in the data, so it gets a fair few videos correct by accident.
 * 10 epochs took 10 minutes to run, consuming ~6.54GB VRAM on my Macbook's MPS the whole time.
 
 
@@ -206,17 +205,17 @@ I tried a series of modifications to see if this ResNet backbone could successfu
 
 ### 1.2.0) Unfreeze some ResNet weight 
 
-ResNet18 is pre-trained on ImageNet, and thus understands a lot about various objects, including people and landscapes. However, it may not understand anything specific about pushups. So, I unfroze the final layer of the resnet backbone, to see if weight-updates would help it recognize spatial features important for counting pushups. 
+ResNet18 is pre-trained on ImageNet, and thus understands a lot about various objects, including people and landscapes. However, it may not understand anything specific about pushups. I unfroze the final layer of the resnet backbone to see if weight-updates would help it recognize spatial features important for counting pushups. 
 
 **Result**: 
  - **Full training set evaluation**: 43% accuracy
  
- I refroze all ResNet-backbone weights going forward.
+ This dataset is likely not large enough to make a meaningful dent in ResNet18's weights for this task. I refroze all ResNet-backbone weights going forward.
 
 
 ### 1.2.1) Switching to Classification
 
-In previous attempts, the model would be penalized for even small deviations from integer predictions, and in the end, the rounded, predicted number of pushups was often one off from the actual value, suggesting the model was getting close but not within rounding distance.
+In previous attempts, the model would be penalized for small deviations from integer predictions, and the rounded, predicted number of pushups was often one off from the actual value, suggesting the model was getting close but not within rounding distance.
 
 I tried switching to ten-class classification to force integer predictions, using cross-entropy-loss. I amended the output layer of the Resnet Hybrid architecture above to output with shape $[\text{Batch}, 10]$, and predicted with the max of these raw scores.
 
@@ -231,11 +230,11 @@ All model attempts going forward used cross-entropy loss, instead.
 
 ### 1.2.2) Trying Data Transformations
 
-I was concerned about the model being inhibited by how small our dataset is. If I could implement similar transformations to those in Practical 9, then our model would see slightly different versions of training points during each epoch, which would artificially "expand" the size of our dataset and hopefully nudge the model to learn real push-up movement patterns instead of memorizing coincidental video details.
+I was concerned about how small our dataset is. Data transformations on load could allow our modelto see slightly different versions of training points during each epoch, thus artificially "expanding" the size of our dataset and hopefully nudging the model to not overfit.
 
-Online research suggested it was very important that, within a given video, transformations needed to be applied the same way to all frames. Random cropping, angle shifts, or color jitter applied non-uniformly would make the video look chaotic and warbly, making the learning problem much more difficult. So, I built wrapper functions which generated a random seed per video and guaranteed the same random operations were copied across all frames in the same video.
+Online research suggested it was important that transformations needed to be applied the same way to all frames within a given video. Random cropping or color jitter applied non-uniformly would make the video look chaotic and warbly, making the learning problem more difficult. I built wrapper functions which generated a random seed per video and guaranteed the same random operations were copied across all frames in the same video.
 
-I tried two different sets of training and validation transformations: one "difficult" and one "easier" (written below). 
+I tried two different sets of training and validation transformations: one "difficult" and one "easier": 
 
 **Difficult**
 
@@ -298,14 +297,12 @@ val_transform = T.Compose([
 ```
 
 
-In the end, both implementations made the model significantly worse, and the model required significantly more time to train up to these values (~60 epochs):
+In the end, both implementations made the model significantly worse:
 
 **Results**:
 
 * **Difficult**: 36% final training accuracy
 * **Easier**: 55% final training accuracy
-
-The model was not learning enough about push-ups for added "push-up variation" to be helpful. It was just making the classification problem harder.
 
 The RandomCrop(150) and VerticalFlip were the likely killers in the diffficult transformations. 
 
@@ -315,32 +312,6 @@ The RandomCrop(150) and VerticalFlip were the likely killers in the diffficult t
 I scrapped both transformation sets going forward.
 
 *(Later, different transformations became very useful - more on that in section 2.0.1 below).*
-
-
-### 1.2.3) Trying Transformer Architecture for Temporal Stage
-
-Maybe the problem was that convolutions weren't strong enough to track the spatial features' movement over time. Given a video is naturally a sequence of frames, I imagined a small transformer for our temporal stage might improve things. The model could learn to attend to certain important frames in the sequence (like, perhaps, the beginning, when the subject is in the start position, to use as reference for determining when a pushup was completed).
-
-\begin{table}[h]
-    \centering
-    \begin{tabular}{llll}
-        \toprule
-        \textbf{Stage}          & \textbf{Input Shape}           & \textbf{Operations}                     & \textbf{Output Shape} \\
-        \midrule
-        Spatial Features        & $(B \times T, 3, 224, 224)$    & Pre-trained ResNet18 (Frozen)           & $(B \times T, 512, 1, 1)$ \\
-        ...                     & $(B \times T, 512, 1, 1)$      & Unpack dimensions                       & $(B, T, 512)$ \\
-        Sequence Prep           & $(B, T, 512)$                  & Concat CLS Token + Pos. Encoding        & $(B, T+1, 512)$ \\
-        Transformer Encoder     & $(B, T+1, 512)$                & 2 Layers [4 Attn. Heads + Feed Forward] & $(B, T+1, 512)$ \\
-        ...                     & $(B, T+1, 512)$                & extract CLS value in the front          & $(B, 512)$ \\
-        Classifier              & $(B, 512)$                     & Linear                                  & $(B, 10)$ \\
-        \bottomrule
-    \end{tabular}
-    \caption{VideoTransformerModel: 15,439,434 parameters}
-\end{table}
-
-**Result**: 25% final accuracy (~20 epochs)
-
-The transformer did not help at all. After more online research on transformers, I concluded this this architecture would likely need significantly more data to learn anything valuable. And given data augmentations had not helped up to this point, I went back to the Resnet Hybrid.
 
 
 ### 1.2.4) The same temporal convolutions, but deeper.
@@ -368,13 +339,12 @@ The next unlock came from simply adding another layer each to the temporal and c
 **Result**: 
 * **Final evaluation accuracy**: 75% (~25 epochs, 2 hours)
 
-On some epochs, this architecture acheive 100% accuracy across its training batches.It was clearly overfitting, but it was reassuring to see that an architecture like this could at least learn something.
 
 ### 1.2.5) Data Augmentation for Class Balance
 
-It was at this phase I recalled the importance of class balance - it had not dawned on me until now that nearly all training videos contained 2, 3, and 4 pushups. Given we don't know the class balance of our test set, I needed the model to reliably predict anywhere from 1 to 10, so I needed a way of expanding the training set to learn higher pushup counts.
+It had not dawned on me until now that most training videos contained 2, 3, and 4 pushups. Given we don't know the class balance of our test set, I needed to expand the training set reliably predict anywhere from 1 to 10.
 
-After some online research, I landed on the following augmentations:
+After some online research, I landed on the following augmentations of the given training data:
 
 \begin{table}[h]
     \centering
@@ -396,7 +366,7 @@ After some online research, I landed on the following augmentations:
 \end{table}
 
 
-In the end, we acheived a more balanced dataset, with the following label counts:
+We acheive a more balanced dataset, with the following label counts:
 
  
 \begin{table}[h]
@@ -411,14 +381,14 @@ In the end, we acheived a more balanced dataset, with the following label counts
     \caption{(1.2.5) training set labels and counts (329 total)}
 \end{table}
 
-Slicing needed to be done with care to avoid jump cuts, which could be misinterpreted by the model as pushups. To keep transitions smooth, I concatenated "palindrome stitches", i.e. the *reverse* list of frames with the original, like so:
+Slicing needed to be done with care to avoid jump cuts, which could be misinterpreted by the model as pushups. I thus concatenated "palindrome stitches", i.e. the *reverse* list of frames with the original, like so:
 
 * Doubles = Original + Palindrome
 * Triples = Original + Palindrome + Original
 * 3 to 5 = Original + (Palindrome * 66%)
 * 4 to 7 = Original + (Palindrome * 80%)
 
-I used 66% and 80% instead of 60% and 75% stitches for the 5's and 7's to account for many videos containing a little bit of "dead space" at the beginning before the subject would first move, which would downstream lead the 5th and 7th push-ups to get cut off too early, if not for the extra stiching.
+I used 66% and 80% instead of 60% and 75% stitches for the 5's and 7's to account for many videos containing a little bit of "dead space" at the beginning before the subject first moved, which would downstream cut the 5th and 7th push-ups too early.
 
 All cut-in-half videos were cut at the nearest integer to the midpoint frame.
 
@@ -429,22 +399,6 @@ Training was done using the deeper ResNet Hybrid (1.2.4) (~29 epochs, 2.5 hours)
 
 The model had a strong tendency to overcount push-ups, suggesting the stiching was introducing noisy movements that were being misinterpreted as push-ups.
 
-
-::: {.callout-note}
-
-## Back to Regression after Data Augmentation
-
-With a more balanced training set, I wondered whether regression would be more appropriate again. Perhaps earlier attempts were hamstrung by our training set's low variance.
-
-The answer is emphatically, "no:"
-
-  - After 30 epochs of training, ResNet Hybrid (1.2.4) acheived it's best weights on epoch 3, despite a learning rate scheduler lowering the learning rate to 3e-7 by epoch 25.
-  - This best model acheived just 6% accuracy.
-  - Some predictions were wildly high (two videos were predicted to contain 14 pushups, and another 16).
-
-Lesson learned: regression seems generally harder for this problem.
-
-:::
 
 ### 1.2.6) Simpler Augmentation
 

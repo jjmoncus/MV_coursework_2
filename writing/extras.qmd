@@ -43,3 +43,52 @@ My first ideas involved a small amount of pose estimation. In the end, the first
 
 
 In short, this approach *might* make sense if all videos were shot from the side, and if the orientation of the joints don't change much as they move (i.e. if it's still easy to recognize that a shoulder is a shoulder, whether the arm is straight or bent). Given none of this is the case, I scrapped this plan pretty quickly.
+
+
+
+
+
+### 1.2.3) Trying Transformer Architecture for Temporal Stage
+
+Maybe the problem was that convolutions weren't strong enough to track the spatial features' movement over time. Given a video is naturally a sequence of frames, I imagined a small transformer for our temporal stage might improve things. The model could learn to attend to certain important frames in the sequence (like, perhaps, the beginning, when the subject is in the start position, to use as reference for determining when a pushup was completed).
+
+\begin{table}[h]
+    \centering
+    \begin{tabular}{llll}
+        \toprule
+        \textbf{Stage}          & \textbf{Input Shape}           & \textbf{Operations}                     & \textbf{Output Shape} \\
+        \midrule
+        Spatial Features        & $(B \times T, 3, 224, 224)$    & Pre-trained ResNet18 (Frozen)           & $(B \times T, 512, 1, 1)$ \\
+        ...                     & $(B \times T, 512, 1, 1)$      & Unpack dimensions                       & $(B, T, 512)$ \\
+        Sequence Prep           & $(B, T, 512)$                  & Concat CLS Token + Pos. Encoding        & $(B, T+1, 512)$ \\
+        Transformer Encoder     & $(B, T+1, 512)$                & 2 Layers [4 Attn. Heads + Feed Forward] & $(B, T+1, 512)$ \\
+        ...                     & $(B, T+1, 512)$                & extract CLS value in the front          & $(B, 512)$ \\
+        Classifier              & $(B, 512)$                     & Linear                                  & $(B, 10)$ \\
+        \bottomrule
+    \end{tabular}
+    \caption{VideoTransformerModel: 15,439,434 parameters}
+\end{table}
+
+**Result**: 25% final accuracy (~20 epochs)
+
+The transformer did not help at all. After more online research on transformers, I concluded this this architecture would likely need significantly more data to learn anything valuable. And given data augmentations had not helped up to this point, I went back to the Resnet Hybrid.
+
+
+
+
+
+::: {.callout-note}
+
+## Back to Regression after Data Augmentation
+
+With a more balanced training set, I wondered whether regression would be more appropriate again. Perhaps earlier attempts were hamstrung by our training set's low variance.
+
+The answer is emphatically, "no:"
+
+  - After 30 epochs of training, ResNet Hybrid (1.2.4) acheived it's best weights on epoch 3, despite a learning rate scheduler lowering the learning rate to 3e-7 by epoch 25.
+  - This best model acheived just 6% accuracy.
+  - Some predictions were wildly high (two videos were predicted to contain 14 pushups, and another 16).
+
+Lesson learned: regression seems generally harder for this problem.
+
+:::
