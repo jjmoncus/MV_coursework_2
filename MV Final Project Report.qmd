@@ -34,6 +34,8 @@ Here are what I consider to be the most valuable learnings from over the course 
 
 * There is an art to balancing model size/complexity, weight decay, and learning rate scheduling to learn suffiiently complex relationships, avoid overfitting, and not waste training time.
 
+*Note*: All published numbers refer to training/inference runs on my local machine. See final section for comments when trying to run in Colab.
+
 
 # Learning About the Data
 
@@ -679,6 +681,8 @@ Here's the screenshot of my final Summary section, when validating on the origin
 Upon trying to run my notebooks to Colab, I am getting inexplicably terrible errors. The model would seemingly only predict values of 1, 2, and 3, resulting in 3-5% final accuracy, for reasons I do not at all understand.
 
 I confirmed that both my local environment and the Colab environment were operating in normal float32 precision, so the discrepancy doesn't seem to be a precision error. None of the code is changed. 
+
+Colab also seems to be sometimes load old versions of my code, without warning. I experimented by commenting out chunks, commiting and pushing to Github, and then trying to open in Colab and those chunk won't be commented out. It seems like there's a very long lag between the two.
 
 I have included screenshots of my local machine's console to confirm that this final model did in fact evaluate 93.5% accuracy on the 77 provided videos.
 
