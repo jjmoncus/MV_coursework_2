@@ -11,6 +11,10 @@ format:
       - \usepackage{graphicx}
 ---
 
+Model Training Notebook: [text](link)
+Model Inference Notebook: [text](link)
+Final Model on HuggingFace: [text](link)
+
 # Executive Summary
 
 Here are what I consider to be the most valuable learnings from over the course of this project.
@@ -695,6 +699,8 @@ After applying the above updates, the final model looks like so:
     \end{tabular}
     \caption{Final PoseModel: 305,530 parameters}
 \end{table}
+
+This model is publically available at **HUGGING FACE URL HERE**
 
 This architecture achieves 94% accuracy on the original training videos, as well as 92% accuracy on our class-balanced set.
 
