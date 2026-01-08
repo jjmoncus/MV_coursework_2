@@ -723,4 +723,5 @@ I'm going to force install all these into my notebook, work locally, and hope re
 Notes
 
 * Trying to estimate poses in "video" mode introduced a complication with the frame timestamps not being monotonically increasing. in the end, I chose to detect in "image" mode
-* I chose "lite" instead of "heavy" model for speed - heavy took 15 seconds per video, lite takes 4-5. I'll try heavy later if accuracy on lite is too bad
+* I chose "lite" instead of "heavy" model for speed - heavy took 15 seconds per video, lite takes 4-5 (both on local GPU). I'll try heavy later if accuracy on lite is too bad
+* first run after migrating versions: 81.61% final accuracy (not bad, not great), likely chalked up to "lite" pose estimator
