@@ -722,6 +722,11 @@ I'm going to force install all these into my notebook, work locally, and hope re
 
 Notes
 
+I had to switch to using mediapipe 0.10.30 instead of 0.10.13. The older version required me to force install certain versions of numpy and torch, which inside Colab would have required the TA to restart the session after updated packages were downloaded. To avoid this, I needed to pick a pose processor that was compatible with the module versions that come stock in Colab.
+
 * Trying to estimate poses in "video" mode introduced a complication with the frame timestamps not being monotonically increasing. in the end, I chose to detect in "image" mode
 * I chose "lite" instead of "heavy" model for speed - heavy took 15 seconds per video, lite takes 4-5 (both on local GPU). I'll try heavy later if accuracy on lite is too bad
-* first run after migrating versions: 81.61% final accuracy (not bad, not great), likely chalked up to "lite" pose estimator
+* first run after migrating versions (on local GPU): 81.61% accuracy on class balance set (not bad, not great), , likely chalked up to "lite" pose estimator
+* first migrated run in colab
+    - videos take 11ish seconds to estimate poses on 
+    - 84.80% final accuracy 
