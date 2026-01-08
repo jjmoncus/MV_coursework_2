@@ -34,7 +34,9 @@ Here are what I consider to be the most valuable learnings from over the course 
 
 * There is an art to balancing model size/complexity, weight decay, and learning rate scheduling to learn suffiiently complex relationships, avoid overfitting, and not waste training time.
 
-*Note*: All published numbers refer to training/inference runs on my local machine. See final section for comments when trying to run in Colab.
+* Always, always, **always** check that module versions are the same across training/inference environments.
+
+*Note*: Unless otherwise noted, all published numbers refer to training/inference runs on my local machine. See final section for comments when trying to run in Colab.
 
 
 # Learning About the Data
@@ -676,19 +678,22 @@ Here's the screenshot of my final Summary section, when validating on the origin
 ![Summary](plots/Summary_of_Inference.png){fig-align="center" width=60%}
 
 
-# Final Update: Discrepancy Between Colab T4 and Local MPS
+# Final Update: Discrepancy Between Colab and Local MPS
 
-Upon trying to run my notebooks to Colab, I am getting inexplicably terrible errors. The model would seemingly only predict values of 1, 2, and 3, resulting in 3-5% final accuracy, for reasons I do not at all understand.
+Upon trying to run my notebooks to Colab, I was getting inexplicably terrible errors. Despite working well on my local machine, the model would seemingly only predict values of 1, 2, and 3 in the inference notebook, resulting in 3-5% final accuracy.
 
-I confirmed that both my local environment and the Colab environment were operating in normal float32 precision, so the discrepancy doesn't seem to be a precision error. None of the code is changed. 
+After some review, I discovered the discrepancy was due to different versions of modules downloaded in each environment.
 
+
+
+<!-- 
 Colab also seems to be sometimes load old versions of my code, without warning. I experimented by commenting out chunks, commiting and pushing to Github, and then trying to open in Colab and those chunk won't be commented out. It seems like there's a very long lag between the two.
 
 I have included screenshots of my local machine's console to confirm that this final model did in fact evaluate 93.5% accuracy on the 77 provided videos.
 
-You can see the same messages present in the Colab versions, where I download test videos and then estimate poses on them (You can ignore the "estimate poses in training videos" message ... they are indeed the training/test videos provided to us).
+You can see the same messages present in the Colab versions, where I download test videos and then estimate poses on them (You can ignore the "estimate poses in training videos" message ... they are indeed the training/test videos provided to us). -->
 
-![Console screenshot 1](plots/Console1.png){fig-align="center" width=100%}
+<!-- ![Console screenshot 1](plots/Console1.png){fig-align="center" width=100%}
 
 ![Console screenshot 2](plots/Console2.png){fig-align="center" width=100%}
 
@@ -696,37 +701,42 @@ You can see the same messages present in the Colab versions, where I download te
 
 ![Console screenshot 4](plots/Console4.png){fig-align="center" width=100%}
 
-![Console screenshot 5](plots/Console5.png){fig-align="center" width=100%}
+![Console screenshot 5](plots/Console5.png){fig-align="center" width=100%} -->
 
+For safety's sake, I decided to load my environment with all of Colab's defaults for the following library versions:
 
-# Trying Again
+* `Python`: 3.12.12
+* `opencv-python`: 4.12.0.88
+* `numpy`: 2.0.2
+* `torch`: 2.9.0
+* `torchvision`: 0.24.0
+* `seaborn`: 0.13.2
+* `pandas`: 2.2.2
+* `matplotlib`: 3.10.0
+* `huggingface_hub`: 0.36.0
+* `tqdm`: 4.67.1
+* `boto3`: 1.42.24
 
-For safety's sake, I am going to use on my local machine the exact versions that colab defaults to, so there wont be any conflict that would require the TA to restart the session
+The biggest hurdle was the `numpy` switch, since the updated version was no longer compatible with mediapipe 0.10.13 that I had been using for pose estimation. I had to switch to mediapipe 0.10.30, which required rewriting the functions that would load and estimate poses on videos. Continuing to use 0.10.13 would have required a force-install of a different numpy version in Colab, which would have then required the TA to restart the Colab session after updated packages were downloaded, which would broke the rules of the assignment.
 
-Colab seems to default to the following library versions:
+Some obeservations about mediapipe 0.10.30:
 
-* Python: 3.12.12
-* opencv-python: 4.12.0.88
-* numpy: 2.0.2
-* torch: 2.9.0
-* torchvision: 0.24.0
-* seaborn: 0.13.2
-* pandas 2.2.2
-* matplotlib 3.10.0
-* huggingface_hub: 0.36.0
-* tqdm: 4.67.1
-* boto3: 1.42.24
+* Trying to estimate poses in "video" mode introduced a complication with the frame timestamps not being monotonically increasing. In the end, I chose to detect in "image" mode. 
 
-I'm going to force install all these into my notebook, work locally, and hope results are the same.
+* I chose "lite" instead of "heavy" model for speed - heavy took 15 seconds per video, lite takes 4-5 (both on local GPU).
 
+**Results:**
 
-Notes
+* first run (on local GPU) after migrating module versions: 
+    * 82% accuracy on class balance set
+    * 90% accuracy on original videos. 
+    * The decrease in accuracy come from using the "lite" pose estimator, instead of the "heavy" one.
 
-I had to switch to using mediapipe 0.10.30 instead of 0.10.13. The older version required me to force install certain versions of numpy and torch, which inside Colab would have required the TA to restart the session after updated packages were downloaded. To avoid this, I needed to pick a pose processor that was compatible with the module versions that come stock in Colab.
+* first run in colab (on CPU, since I ran out of T4 credits):
+    * 84.80% final accuracy on class balanced set
+    * 89.61% accuracy on original videos.
 
-* Trying to estimate poses in "video" mode introduced a complication with the frame timestamps not being monotonically increasing. in the end, I chose to detect in "image" mode
-* I chose "lite" instead of "heavy" model for speed - heavy took 15 seconds per video, lite takes 4-5 (both on local GPU). I'll try heavy later if accuracy on lite is too bad
-* first run after migrating versions (on local GPU): 81.61% accuracy on class balance set (not bad, not great), , likely chalked up to "lite" pose estimator
-* first migrated run in colab
-    - videos take 11ish seconds to estimate poses on 
-    - 84.80% final accuracy 
+Below is the Summary screenshot from Colab.
+
+![Summary of Inference, Final](plots/Summary_of_Inference_FINAL_FINAL.png){fig-align="center" width=80%}
+    
