@@ -697,3 +697,30 @@ You can see the same messages present in the Colab versions, where I download te
 ![Console screenshot 4](plots/Console4.png){fig-align="center" width=100%}
 
 ![Console screenshot 5](plots/Console5.png){fig-align="center" width=100%}
+
+
+# Trying Again
+
+For safety's sake, I am going to use on my local machine the exact versions that colab defaults to, so there wont be any conflict that would require the TA to restart the session
+
+Colab seems to default to the following library versions:
+
+* Python: 3.12.12
+* opencv-python: 4.12.0.88
+* numpy: 2.0.2
+* torch: 2.9.0
+* torchvision: 0.24.0
+* seaborn: 0.13.2
+* pandas 2.2.2
+* matplotlib 3.10.0
+* huggingface_hub: 0.36.0
+* tqdm: 4.67.1
+* boto3: 1.42.24
+
+I'm going to force install all these into my notebook, work locally, and hope results are the same.
+
+
+Notes
+
+* Trying to estimate poses in "video" mode introduced a complication with the frame timestamps not being monotonically increasing. in the end, I chose to detect in "image" mode
+* I chose "lite" instead of "heavy" model for speed - heavy took 15 seconds per video, lite takes 4-5. I'll try heavy later if accuracy on lite is too bad
